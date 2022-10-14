@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    html,
+    body {
+      padding: 10px 20px;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin-top: 30px;
+      margin-bottom: 20px;
+    }
+
+    #outer-container {
+      position: relative;
+    }
+
+    #content {
+      max-width: 920px;
+      font-size: 17px;
+      line-height: 27px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="outer-container">
+    <form id="labels-form">
+      <div>
+        <button id="submit-labels" type="submit">Submit</button>
+      </div>
+    </form>
+    <hr>
+    <div>
+      <p><a id="document-uri" target="_blank"></a></p>
+      <p><b id="question"></b></p>
+      <div id="ranking"></div>
+    </div>
+  </div>
+  <script type="text/javascript">
+    (function() {
+      var config = null;
+      var currentDocEvents = null;
+      var currentRanking = null;
+      var hazardLabel = null;
+      var docUriEl = document.getElementById('document-uri');
+      var rankingEl = document.getElementById('ranking');
+      var formEl = document.getElementById('labels-form');
+      var submitEl = document.getElementById('submit-labels');
+
+      var changeRanking = function(i, d) {
+        let a = currentRanking[i];
+        let b = currentRanking[i+d];
+        currentRanking[i+d] = a;
+        currentRanking[i] = b;
+        showRanking();
+      };
+
+      var showRanking = function () {
+        if (!currentRanking) {
+          rankingEl.innerText = 'No more documents to review.';
+          return;
+        }
+
+        rankingEl.innerText = '';
+        currentRanking.map(function(m, i) {
+          var div = document.createElement('div');
+          var up = document.createElement('button');
+          div.appendChild(up);
+          up.innerHTML = '&uarr;';
+          up.style.visibility = i == 0 ? 'hidden' : 'visible';
+          up.addEventListener('click', function() {
+            changeRanking(i, -1);
+          });
+          var down = document.createElement('button');
+          div.appendChild(down);
+          down.innerHTML = '&darr;';
+          down.style.visibility = i == currentRanking.length - 1 ? 'hidden' : 'visible';
+          down.addEventListener('click', function () {
+            changeRanking(i, 1);
+          });
+          var num = document.createElement('b');
+          div.appendChild(num);
+          num.innerText = ' ' + m['cas-number'];
+          var name = document.createElement('span');
+          div.appendChild(name);
+          if (m['substance-name']) {
+            name.innerText = ' ' + m['substance-name'];
+          }
+          if (m['hazards'].length) {
+            var ul = document.createElement('ul');
+            div.appendChild(ul);
+            m['hazards'].map(function(s) {
+              var li = document.createElement('li');
+              ul.appendChild(li);
+              li.innerText = s;
+            });
+          } else {
+            var p = document.createElement('p');
+            p.innerText = 'No hazards data';
+            div.appendChild(p);
+          }
+          var sources = Object.entries(m['hazard-sources'] || {});
+          if (sources.length) {
+            var linksDiv = document.createElement('div');
+            div.appendChild(linksDiv);
+            linksDiv.innerHTML = '<b>Hazard sources:</b>'
+            var ul = document.createElement('ul');
+            linksDiv.appendChild(ul);
+            sources.map(function(source) {
+                source[1].map(function(url, i) {
+                var li = document.createElement('li');
+                ul.appendChild(li);
+                var a = document.createElement('a');
+                li.appendChild(a);
+                a.href = url;
+                a.target = '_blank';
+                if (source[1].length > 1) {
+                  a.innerText = source[0] + ' (' + (i+1) + ')';
+                } else {
+                  a.innerText = source[0];
+                }
+              });
+            });
+          }
+          div.appendChild(document.createElement('br'));
+          div.appendChild(document.createElement('br'));
+          rankingEl.appendChild(div);
+        });
+      };
+
+      var loadConfig = function () {
+        var req = new XMLHttpRequest()
+        req.addEventListener("load", function (resp) {
+          config = JSON.parse(req.response);
+          console.log(config);
+          labels = config['current_labels'] || [];
+          if (labels.length) {
+            hazardLabel = labels[0];
+            document.getElementById('question').innerText = hazardLabel['question'];
+          }
+        });
+        req.open("GET", "/config");
+        req.send();
+      };
+
+      var loadCurrentDocEvents = function () {
+        var req = new XMLHttpRequest();
+        req.addEventListener("load", function (resp) {
+          formEl.reset();
+          currentDocEvents = JSON.parse(req.response) || [];
+          var doc = currentDocEvents.length ? currentDocEvents[0] : {};
+          docUriEl.setAttribute('href', doc['uri']);
+          docUriEl.innerText = doc['uri'] || "";
+          currentRanking = (doc['data'] || {})['ranking'];
+          showRanking();
+          currentDocEvents.forEach(function (event) {
+            if ( 'label-answer' == event['type']
+                 && doc['hash'] == (event['data'] || {})['document']) {
+              // TODO: Add pre-existing answers
+            }
+          });
+        });
+        req.open("GET", "/current-doc-events");
+        req.send();
+      };
+
+      var labelAnswers = function() {
+        return [{
+          "data": {
+            "answer": { "ranking": currentRanking },
+            "document": currentDocEvents[0].hash,
+            "label": hazardLabel.hash,
+            "reviewer": config.reviewer,
+            "timestamp": Math.floor(Date.now() / 1000)
+          },
+          "type": "label-answer"
+        }];
+      };
+
+      var submitDoc = function(event) {
+        event.preventDefault();
+        var req = new XMLHttpRequest();
+        req.addEventListener("load", function (resp) {
+          loadCurrentDocEvents();
+        });
+        req.open("POST", "/submit-label-answers");
+        req.send(JSON.stringify(labelAnswers()));
+      };
+
+      submitEl.addEventListener("click", submitDoc);
+
+      loadConfig();
+      loadCurrentDocEvents();
+    })();
+  </script>
+</body>
+
+</html>

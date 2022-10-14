@@ -1,0 +1,18 @@
+db: sink.jsonl
+
+reviewer: mailto:user@example.com
+
+labels:
+  hazard_ranking:
+    type: ranking
+    question: "Order (best to worst):"
+
+flows:
+  hazards:
+    steps:
+      - run: clojure -X srvc-hazards/generate-ranking '{:cas-file "data/cas1.txt"}'
+
+      - run_embedded: remove-reviewed
+
+      - run: src/rank.clj
+        labels: [hazard_ranking]

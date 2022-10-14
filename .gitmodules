@@ -1,0 +1,3 @@
+[submodule "echemportal"]
+	path = echemportal
+	url = https://github.com/biobricks-ai/echemportal.git
