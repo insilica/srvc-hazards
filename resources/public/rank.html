@@ -184,12 +184,14 @@
 
       var submitDoc = function(event) {
         event.preventDefault();
-        var req = new XMLHttpRequest();
-        req.addEventListener("load", function (resp) {
-          loadCurrentDocEvents();
-        });
-        req.open("POST", "/submit-label-answers");
-        req.send(JSON.stringify(labelAnswers()));
+        if (currentDocEvents[0]) {
+          var req = new XMLHttpRequest();
+          req.addEventListener("load", function (resp) {
+            loadCurrentDocEvents();
+          });
+          req.open("POST", "/submit-label-answers");
+          req.send(JSON.stringify(labelAnswers()));
+        }
       };
 
       submitEl.addEventListener("click", submitDoc);
