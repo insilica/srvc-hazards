@@ -3,9 +3,7 @@
 (require '[babashka.deps :as deps]
          '[babashka.fs :as fs])
 
-(deps/add-deps '{:deps {co.insilica/bb-srvc
-                        {:local/root "../bb-srvc"}
-                        #_{:mvn/version "0.9.0-SNAPSHOT"}}})
+(deps/add-deps '{:deps {co.insilica/bb-srvc {:mvn/version "0.9.0"}}})
 
 (require '[srvc.bb.html :as bhtml])
 
